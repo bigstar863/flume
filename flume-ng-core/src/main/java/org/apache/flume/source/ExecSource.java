@@ -30,6 +30,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.flume.Channel;
 import org.apache.flume.Context;
@@ -291,6 +293,7 @@ Configurable {
         String exitCode = "unknown";
         BufferedReader reader = null;
         String line = null;
+        
         final List<Event> eventList = new ArrayList<Event>();
 
         timedFlushService = Executors.newSingleThreadScheduledExecutor(
@@ -333,14 +336,23 @@ Configurable {
               }
           },
           batchTimeout, batchTimeout, TimeUnit.MILLISECONDS);
-
+          String linesum = "";
+          String pattern = "^[0-9]{4}-[0-9]{2}-[0-9]{2}.*";
+  		  Pattern r = Pattern.compile(pattern);
           while ((line = reader.readLine()) != null) {
-            synchronized (eventList) {
-              sourceCounter.incrementEventReceivedCount();
-              eventList.add(EventBuilder.withBody(line.getBytes(charset)));
-              if(eventList.size() >= bufferCount || timeout()) {
-                flushEventBatch(eventList);
-              }
+        	      Matcher m = r.matcher(line);
+	        	  if(!m.find()){
+	      	  		linesum+=line;
+	        	  }else{
+		            synchronized (eventList) {
+		              sourceCounter.incrementEventReceivedCount();
+		              eventList.add(EventBuilder.withBody(linesum.getBytes(charset)));
+		              linesum="";
+		              linesum+=line;
+		              if(eventList.size() >= bufferCount || timeout()) {
+		                flushEventBatch(eventList);
+		              }
+		           }
             }
           }
 
